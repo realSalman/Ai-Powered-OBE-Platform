@@ -2,6 +2,18 @@
 
 AtlasAI is a full-stack, highly optimized academic management platform. It uses a modern decoupled architecture featuring a Next.js (React 19) frontend and an Express/TypeScript backend backed by MongoDB and Redis.
 
+## ✨ Core Features
+
+AtlasAI is designed to handle the complete lifecycle of university administration and Outcome-Based Education (OBE).
+
+* **Organizational Hierarchy**: Complete CRUD for Departments, Degree Programs, and Student Batches.
+* **Academic Lifecycle**: Manage active/upcoming Semesters, Course Catalogs, and assign Teachers to specific Course Offerings per section.
+* **Outcome-Based Education (OBE)**: Define Course Outcomes (COs) and map them to Program Outcomes (POs).
+* **Assessments & Grading**: Create Exam templates with specific question-level marks mapped directly to COs to calculate student attainment.
+* **Enrollment & Sections**: Robust mapping of students to specific sections (`SectionAssignments`) and course enrollments.
+* **Role-Based Access Control**: Granular permissions scaling from Superadmins to Department Admins, Teachers, and Students.
+* **Student Insights & AI**: Built-in modules to run analytics on student performance and leverage AI for academic insights.
+
 ## 🏗 High-Level Architecture
 
 The project is structured as a monorepo with distinct client and server directories to enforce separation of concerns while allowing shared typings where applicable.

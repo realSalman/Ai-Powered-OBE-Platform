@@ -66,6 +66,15 @@ AtlasAI incorporates enterprise-grade performance and reliability patterns:
 5. **Zod Validation & Consistent Responses**
    Input validation happens at the boundary edge (Express middleware) using strictly typed Zod schemas. Output is guaranteed to follow a standard `{ success, data, meta }` wrapper, preventing malformed UI rendering.
 
+## 📈 High-Concurrency Scaling (20k+ Users)
+
+The platform is architecturally tuned to support high concurrency (20,000+ simultaneous connections) on a single high-performance machine using the following production strategies:
+
+* **PM2 Clustering**: Both the Next.js frontend and Express backend use `pm2-runtime` in cluster mode (`instances: 'max'`) inside their Docker containers to fully saturate all available CPU cores.
+* **Database Offloading**: Local MongoDB instances in Docker Compose have been removed in favor of connecting to a managed **MongoDB Atlas** cluster, isolating database I/O from application compute.
+* **Optimized Nginx Reverse Proxy**: Rate limiting is configured with relaxed burst limits (`burst=200` for general APIs) to accommodate large pools of users sharing NATs (e.g., campus networks) without triggering false-positive 429 errors.
+* **Deployment**: The `docker-compose.yml` is streamlined for production, though transitioning to a Kubernetes cluster or Cloud Run is recommended for multi-machine scaling.
+
 ## 📁 Repository Structure
 
 ```

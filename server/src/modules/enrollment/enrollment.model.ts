@@ -14,9 +14,13 @@ const enrollmentSchema = new Schema<IEnrollment>({
 enrollmentSchema.plugin(auditPlugin);
 enrollmentSchema.plugin(softDeletePlugin);
 
-// Indexes
-enrollmentSchema.index({ student: 1, courseOffering: 1 }, { unique: true });
+// Optimized Indexes:
+// 1. Compound unique index with soft-delete partial filter expression
+enrollmentSchema.index(
+  { student: 1, courseOffering: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
+);
+// 2. Index for queries filtering courseOffering (student is already covered as prefix of compound index)
 enrollmentSchema.index({ courseOffering: 1 });
-enrollmentSchema.index({ student: 1 });
 
 export const EnrollmentModel: Model<IEnrollment> = mongoose.model<IEnrollment>('Enrollment', enrollmentSchema);

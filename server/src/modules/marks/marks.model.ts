@@ -22,10 +22,15 @@ const studentMarkSchema = new Schema<IStudentMark>({
 studentMarkSchema.plugin(auditPlugin);
 studentMarkSchema.plugin(softDeletePlugin);
 
-// Indexes
-studentMarkSchema.index({ exam: 1, student: 1 }, { unique: true });
+// Optimized Indexes:
+// 1. Compound unique index with soft-delete partial filter expression
+studentMarkSchema.index(
+  { exam: 1, student: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
+);
+// 2. Index for queries filtering courseOffering
 studentMarkSchema.index({ courseOffering: 1 });
+// 3. Index for querying all marks for a student across courses (exam prefix already covers exam queries)
 studentMarkSchema.index({ student: 1 });
-studentMarkSchema.index({ exam: 1 });
 
 export const StudentMarkModel: Model<IStudentMark> = mongoose.model<IStudentMark>('StudentMark', studentMarkSchema);

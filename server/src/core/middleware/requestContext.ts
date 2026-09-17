@@ -23,3 +23,12 @@ export const contextMiddleware = (req: AuthRequest, _res: Response, next: NextFu
 export const getRequestUserId = () => requestContext.getStore()?.userId || 'system';
 export const getRequestRoles = () => requestContext.getStore()?.roles || [];
 export const getRequestId = () => requestContext.getStore()?.requestId || 'unknown';
+
+export const setRequestContextUser = (userId: string, roles: string[] = []) => {
+  const store = requestContext.getStore();
+  if (store) {
+    store.userId = userId;
+    store.roles = roles;
+  }
+};
+

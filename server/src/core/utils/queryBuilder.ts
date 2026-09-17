@@ -74,13 +74,20 @@ export class QueryBuilder<T> {
     return this;
   }
 
+  read(preference: 'primary' | 'secondary' | 'secondaryPreferred' | 'primaryPreferred' | 'nearest' = 'secondaryPreferred'): this {
+    this.query = this.query.read(preference);
+    return this;
+  }
+
   async paginate(): Promise<{ data: T[]; meta: PaginationMeta }> {
-    const page = parseInt(this.queryParams.page, 10) || 1;
-    const limit = Math.min(parseInt(this.queryParams.limit, 10) || 20, 100);
+    const page = Math.max(parseInt(this.queryParams.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(this.queryParams.limit, 10) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const data = await this.query.skip(skip).limit(limit).lean();
-    const total = await this.model.countDocuments(this.filterQuery);
+    const [data, total] = await Promise.all([
+      this.query.skip(skip).limit(limit).lean(),
+      this.model.countDocuments(this.filterQuery),
+    ]);
     const totalPages = Math.ceil(total / limit);
 
     return {

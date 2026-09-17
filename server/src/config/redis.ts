@@ -62,9 +62,16 @@ export const cacheInvalidate = async (keyOrPattern: string): Promise<void> => {
   if (!isRedisConnected || !redisClient.isOpen) return;
   try {
     if (keyOrPattern.includes('*')) {
-      const keys = await redisClient.keys(keyOrPattern);
-      if (keys.length > 0) {
-        await redisClient.del(keys);
+      const keysToDelete: string[] = [];
+      for await (const key of (redisClient as any).scanIterator({ MATCH: keyOrPattern, COUNT: 100 })) {
+        keysToDelete.push(key);
+        if (keysToDelete.length >= 100) {
+          await redisClient.del(keysToDelete);
+          keysToDelete.length = 0;
+        }
+      }
+      if (keysToDelete.length > 0) {
+        await redisClient.del(keysToDelete);
       }
     } else {
       await redisClient.del(keyOrPattern);

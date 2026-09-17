@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import admin from '../config/firebase';
 import User, { UserRole } from '../models/User';
+import { setRequestContextUser } from '../core/middleware/requestContext';
+import { cacheGet, cacheSet } from '../config/redis';
 
 export interface AuthRequest extends Request {
   user?: any; // The authenticated user from DB
@@ -32,6 +34,20 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
         batch: decodedToken.batch,
         teacherInitial: decodedToken.teacherInitial,
       };
+      setRequestContextUser(req.user._id, req.user.roles);
+      return next();
+    }
+
+    // Optimization: check Redis cache for claims during the 1hr token transition window
+    const cacheKey = `user:claims:${decodedToken.uid}`;
+    const cachedClaims = await cacheGet(cacheKey);
+    if (cachedClaims) {
+      req.user = {
+        ...cachedClaims,
+        _id: cachedClaims.mongoUserId,
+        email: decodedToken.email as string,
+      };
+      setRequestContextUser(req.user._id, req.user.roles);
       return next();
     }
 
@@ -55,17 +71,20 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
       teacherInitial: user.teacherInitial || ''
     };
     await admin.auth().setCustomUserClaims(decodedToken.uid, claims);
+    await cacheSet(cacheKey, claims, 600); // Cache for 10 minutes
 
     req.user = {
       ...claims,
       _id: claims.mongoUserId,
       email: user.email,
     };
+    setRequestContextUser(req.user._id, req.user.roles);
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid token', error });
   }
 };
+
 
 export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
   if (req.user && req.user.roles && (

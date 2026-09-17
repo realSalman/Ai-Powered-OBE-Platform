@@ -6,10 +6,21 @@ import RoleGuard from '@/components/RoleGuard';
 import { useToast } from '@/components/ui/Toast';
 import { apiGet } from '@/lib/api';
 import { ICourseOffering, IExam, IOfferingAttainment, IExamAttainment, IStudentMark } from '@/types/api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ReferenceLine } from 'recharts';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import dynamic from 'next/dynamic';
+
+const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false });
+const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
+const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
+const RadarChart = dynamic(() => import('recharts').then(mod => mod.RadarChart), { ssr: false });
+const PolarGrid = dynamic(() => import('recharts').then(mod => mod.PolarGrid), { ssr: false });
+const PolarAngleAxis = dynamic(() => import('recharts').then(mod => mod.PolarAngleAxis), { ssr: false });
+const PolarRadiusAxis = dynamic(() => import('recharts').then(mod => mod.PolarRadiusAxis), { ssr: false });
+const Radar = dynamic(() => import('recharts').then(mod => mod.Radar), { ssr: false });
+const ReferenceLine = dynamic(() => import('recharts').then(mod => mod.ReferenceLine), { ssr: false });
 import { ChevronDown, ChevronUp, Download, Eye } from 'lucide-react';
 
 export default function FacultyAnalyticsPage() {
@@ -181,134 +192,146 @@ export default function FacultyAnalyticsPage() {
     }
   };
 
-  // Export to Excel
-  const exportToExcel = () => {
+  // Export to Excel (dynamically loaded on demand)
+  const exportToExcel = async () => {
     if (!offeringAttainment || !selectedOffering) return;
 
-    const courseCode = typeof selectedOffering.course === 'object' ? selectedOffering.course.code : selectedOffering.courseCode;
-    const batchCode = selectedOffering.batch && typeof selectedOffering.batch === 'object' ? selectedOffering.batch.code : '';
-    const section = batchCode ? `${batchCode}_${selectedOffering.section}` : selectedOffering.section;
+    try {
+      const XLSX = await import('xlsx');
+      const courseCode = typeof selectedOffering.course === 'object' ? selectedOffering.course.code : selectedOffering.courseCode;
+      const batchCode = selectedOffering.batch && typeof selectedOffering.batch === 'object' ? selectedOffering.batch.code : '';
+      const section = batchCode ? `${batchCode}_${selectedOffering.section}` : selectedOffering.section;
 
-    // 1. CO sheet
-    const coData = offeringAttainment.coAttainments.map(co => ({
-      'CO Code': co.co,
-      'Description': co.description,
-      'Bloom Level': co.bloomLevel,
-      'Total Students': co.totalStudents,
-      'Passing Students': co.passingStudents,
-      'Attainment %': co.attainmentPct.toFixed(1),
-      'Attainment Level': co.attainmentLevel,
-    }));
+      // 1. CO sheet
+      const coData = offeringAttainment.coAttainments.map(co => ({
+        'CO Code': co.co,
+        'Description': co.description,
+        'Bloom Level': co.bloomLevel,
+        'Total Students': co.totalStudents,
+        'Passing Students': co.passingStudents,
+        'Attainment %': co.attainmentPct.toFixed(1),
+        'Attainment Level': co.attainmentLevel,
+      }));
 
-    // 2. PO sheet
-    const poData = offeringAttainment.poAttainments.map(po => ({
-      'PO Code': po.po,
-      'Description': po.description,
-      'Attainment Score (0-3)': po.attainmentScore,
-    }));
+      // 2. PO sheet
+      const poData = offeringAttainment.poAttainments.map(po => ({
+        'PO Code': po.po,
+        'Description': po.description,
+        'Attainment Score (0-3)': po.attainmentScore,
+      }));
 
-    // 3. Raw Student Marks sheet
-    const rawMarksData: any[] = [];
-    studentMarks.forEach((m) => {
-      const studentObj = typeof m.student === 'object' ? m.student : null;
-      const examObj = typeof m.exam === 'object' ? m.exam : null;
-      if (!studentObj || !examObj) return;
+      // 3. Raw Student Marks sheet
+      const rawMarksData: any[] = [];
+      studentMarks.forEach((m) => {
+        const studentObj = typeof m.student === 'object' ? m.student : null;
+        const examObj = typeof m.exam === 'object' ? m.exam : null;
+        if (!studentObj || !examObj) return;
 
-      rawMarksData.push({
-        'Student Name': studentObj.name,
-        'Student ID': studentObj.studentId,
-        'Exam Name': examObj.name,
-        'Total Score': m.totalObtained,
-        'Max Marks': examObj.totalMarks,
+        rawMarksData.push({
+          'Student Name': studentObj.name,
+          'Student ID': studentObj.studentId,
+          'Exam Name': examObj.name,
+          'Total Score': m.totalObtained,
+          'Max Marks': examObj.totalMarks,
+        });
       });
-    });
 
-    const wb = XLSX.utils.book_new();
-    
-    const wsCo = XLSX.utils.json_to_sheet(coData);
-    const wsPo = XLSX.utils.json_to_sheet(poData);
-    const wsMarks = XLSX.utils.json_to_sheet(rawMarksData);
+      const wb = XLSX.utils.book_new();
+      
+      const wsCo = XLSX.utils.json_to_sheet(coData);
+      const wsPo = XLSX.utils.json_to_sheet(poData);
+      const wsMarks = XLSX.utils.json_to_sheet(rawMarksData);
 
-    XLSX.utils.book_append_sheet(wb, wsCo, 'CO Attainments');
-    XLSX.utils.book_append_sheet(wb, wsPo, 'PO Attainments');
-    if (rawMarksData.length > 0) {
-      XLSX.utils.book_append_sheet(wb, wsMarks, 'Student Marks');
+      XLSX.utils.book_append_sheet(wb, wsCo, 'CO Attainments');
+      XLSX.utils.book_append_sheet(wb, wsPo, 'PO Attainments');
+      if (rawMarksData.length > 0) {
+        XLSX.utils.book_append_sheet(wb, wsMarks, 'Student Marks');
+      }
+
+      XLSX.writeFile(wb, `OBE_Analytics_${courseCode}_SEC_${section}.xlsx`);
+      showToast('Excel report downloaded', 'success');
+    } catch (err) {
+      showToast('Failed to generate Excel file', 'error');
     }
-
-    XLSX.writeFile(wb, `OBE_Analytics_${courseCode}_SEC_${section}.xlsx`);
-    showToast('Excel report downloaded', 'success');
   };
 
-  // Export to PDF
-  const exportToPDF = () => {
+  // Export to PDF (dynamically loaded on demand)
+  const exportToPDF = async () => {
     if (!offeringAttainment || !selectedOffering) return;
 
-    const courseCode = typeof selectedOffering.course === 'object' ? selectedOffering.course.code : selectedOffering.courseCode;
-    const courseTitle = typeof selectedOffering.course === 'object' ? selectedOffering.course.title : selectedOffering.courseTitle;
-    const batchCode = selectedOffering.batch && typeof selectedOffering.batch === 'object' ? selectedOffering.batch.code : '';
-    const section = batchCode ? `${batchCode}_${selectedOffering.section}` : selectedOffering.section;
-    const semester = selectedOffering.semesterName;
+    try {
+      const { jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
 
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFont('courier', 'bold');
-    doc.setFontSize(14);
-    doc.text('ATLASAI OBE ACADEMIC REPORT', 14, 15);
-    
-    doc.setFontSize(10);
-    doc.setFont('courier', 'normal');
-    doc.text(`COURSE: ${courseCode} - ${courseTitle}`, 14, 23);
-    doc.text(`SECTION: ${section} | SEMESTER: ${semester}`, 14, 28);
-    doc.text(`GENERATED AT: ${new Date().toLocaleString()}`, 14, 33);
-    doc.line(14, 35, 196, 35);
+      const courseCode = typeof selectedOffering.course === 'object' ? selectedOffering.course.code : selectedOffering.courseCode;
+      const courseTitle = typeof selectedOffering.course === 'object' ? selectedOffering.course.title : selectedOffering.courseTitle;
+      const batchCode = selectedOffering.batch && typeof selectedOffering.batch === 'object' ? selectedOffering.batch.code : '';
+      const section = batchCode ? `${batchCode}_${selectedOffering.section}` : selectedOffering.section;
+      const semester = selectedOffering.semesterName;
 
-    // CO Table
-    doc.setFont('courier', 'bold');
-    doc.text('COURSE OUTCOME ATTAINMENT', 14, 43);
-    
-    const coHeaders = [['CO', 'BLOOM LEVEL', 'TOTAL', 'PASSING', 'ATTAINMENT %', 'LEVEL']];
-    const coRows = offeringAttainment.coAttainments.map(co => [
-      co.co,
-      co.bloomLevel.toUpperCase(),
-      co.totalStudents.toString(),
-      co.passingStudents.toString(),
-      `${co.attainmentPct.toFixed(1)}%`,
-      co.attainmentLevel.toString(),
-    ]);
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(14);
+      doc.text('ATLASAI OBE ACADEMIC REPORT', 14, 15);
+      
+      doc.setFontSize(10);
+      doc.setFont('courier', 'normal');
+      doc.text(`COURSE: ${courseCode} - ${courseTitle}`, 14, 23);
+      doc.text(`SECTION: ${section} | SEMESTER: ${semester}`, 14, 28);
+      doc.text(`GENERATED AT: ${new Date().toLocaleString()}`, 14, 33);
+      doc.line(14, 35, 196, 35);
 
-    autoTable(doc, {
-      head: coHeaders,
-      body: coRows,
-      startY: 47,
-      theme: 'grid',
-      styles: { font: 'courier', fontSize: 8 },
-      headStyles: { fillColor: [24, 24, 27] },
-    });
+      // CO Table
+      doc.setFont('courier', 'bold');
+      doc.text('COURSE OUTCOME ATTAINMENT', 14, 43);
+      
+      const coHeaders = [['CO', 'BLOOM LEVEL', 'TOTAL', 'PASSING', 'ATTAINMENT %', 'LEVEL']];
+      const coRows = offeringAttainment.coAttainments.map(co => [
+        co.co,
+        co.bloomLevel.toUpperCase(),
+        co.totalStudents.toString(),
+        co.passingStudents.toString(),
+        `${co.attainmentPct.toFixed(1)}%`,
+        co.attainmentLevel.toString(),
+      ]);
 
-    // PO Table
-    const lastY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFont('courier', 'bold');
-    doc.text('PROGRAM OUTCOME ATTAINMENT', 14, lastY);
+      autoTable(doc, {
+        head: coHeaders,
+        body: coRows,
+        startY: 47,
+        theme: 'grid',
+        styles: { font: 'courier', fontSize: 8 },
+        headStyles: { fillColor: [24, 24, 27] },
+      });
 
-    const poHeaders = [['PO', 'DESCRIPTION', 'ATTAINMENT SCORE (0-3)']];
-    const poRows = offeringAttainment.poAttainments.map(po => [
-      po.po,
-      po.description,
-      po.attainmentScore.toFixed(2),
-    ]);
+      // PO Table
+      const lastY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFont('courier', 'bold');
+      doc.text('PROGRAM OUTCOME ATTAINMENT', 14, lastY);
 
-    autoTable(doc, {
-      head: poHeaders,
-      body: poRows,
-      startY: lastY + 4,
-      theme: 'grid',
-      styles: { font: 'courier', fontSize: 8 },
-      headStyles: { fillColor: [24, 24, 27] },
-    });
+      const poHeaders = [['PO', 'DESCRIPTION', 'ATTAINMENT SCORE (0-3)']];
+      const poRows = offeringAttainment.poAttainments.map(po => [
+        po.po,
+        po.description,
+        po.attainmentScore.toFixed(2),
+      ]);
 
-    doc.save(`OBE_Report_${courseCode}_SEC_${section}.pdf`);
-    showToast('PDF report downloaded', 'success');
+      autoTable(doc, {
+        head: poHeaders,
+        body: poRows,
+        startY: lastY + 4,
+        theme: 'grid',
+        styles: { font: 'courier', fontSize: 8 },
+        headStyles: { fillColor: [24, 24, 27] },
+      });
+
+      doc.save(`OBE_Report_${courseCode}_SEC_${section}.pdf`);
+      showToast('PDF report downloaded', 'success');
+    } catch (err) {
+      showToast('Failed to generate PDF file', 'error');
+    }
   };
 
   if (loading) {
